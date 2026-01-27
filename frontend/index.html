@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Bingo Bot</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="connection-indicator" id="connectionStatus">
+                    <span class="connection-dot"></span>
+                    <span class="connection-text">Connected</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <h1 class="app-title">Bingo</h1>
+            </div>
+            <div class="header-right">
+                <div class="balance-display" id="balanceDisplay">
+                    <span class="balance-icon">💰</span>
+                    <span class="balance-amount" id="balanceAmount">0 ETB</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Games Page -->
+            <section id="gamesPage" class="page active">
+                <div class="page-header">
+                    <h2>Games</h2>
+                </div>
+                
+                <!-- Referral Section -->
+                <div class="referral-section">
+                    <div class="referral-card">
+                        <h3>🎁 Invite Friends</h3>
+                        <p>Get <span class="bonus">+10 ETB</span> for each friend</p>
+                        <button class="btn btn-secondary" onclick="shareReferral()">Share Referral Link</button>
+                    </div>
+                </div>
+
+                <!-- Play Bingo Button -->
+                <div class="play-section">
+                    <button class="btn btn-primary btn-large" onclick="goToPlayBingo()">🎮 Play Bingo</button>
+                </div>
+
+                <!-- Contact Section -->
+                <div class="contact-section">
+                    <h3>Contact Us</h3>
+                    <div class="contact-buttons">
+                        <button class="btn btn-outline" onclick="openSupport()">📞 Get Support</button>
+                        <button class="btn btn-outline" onclick="joinChannel()">📢 Join Channel</button>
+                    </div>
+                </div>
+
+                <!-- Game Rooms -->
+                <div class="game-rooms">
+                    <h3>Available Games</h3>
+                    <div class="rooms-list" id="roomsList">
+                        <!-- Dynamically loaded -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Play Bingo Page -->
+            <section id="playBingoPage" class="page">
+                <div class="page-header">
+                    <button class="btn-back" onclick="backToGames()">←</button>
+                    <h2>Select Cards</h2>
+                    <div class="connection-indicator" id="playConnectionStatus">
+                        <span class="connection-dot"></span>
+                        <span class="connection-text">Connected</span>
+                    </div>
+                </div>
+
+                <div class="card-selection">
+                    <p class="selection-info">Select up to 2 cards</p>
+                    <div class="cards-grid" id="cardsGrid">
+                        <!-- Generated cards will be here -->
+                    </div>
+                    <button class="btn btn-primary" onclick="joinRoom()" id="joinBtn" disabled>Join Game</button>
+                </div>
+            </section>
+
+            <!-- Game Playing Page -->
+            <section id="gamePage" class="page">
+                <div class="game-header">
+                    <button class="btn-back" onclick="leaveGame()">←</button>
+                    <div class="game-info">
+                        <span>Room #<span id="roomNumber">1</span></span>
+                        <span>Stake: <span id="stakeAmount">10</span> ETB</span>
+                        <span>Players: <span id="playerCount">0</span></span>
+                    </div>
+                    <div id="gameTimer" class="game-timer">0:50</div>
+                </div>
+
+                <div class="game-container">
+                    <!-- Called Numbers -->
+                    <div class="called-section">
+                        <h4>Called Numbers</h4>
+                        <div class="called-numbers" id="calledNumbers">
+                            <!-- Numbers will appear here -->
+                        </div>
+                    </div>
+
+                    <!-- Bingo Cards -->
+                    <div class="cards-section">
+                        <div class="bingo-cards" id="bingoCards">
+                            <!-- Cards will be generated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="game-controls">
+                    <button class="btn btn-danger" onclick="leaveGame()">Leave</button>
+                    <button class="btn btn-success" onclick="checkBingo()" id="bingoBtn">Bingo!</button>
+                </div>
+            </section>
+
+            <!-- Wallet Page -->
+            <section id="walletPage" class="page">
+                <div class="page-header">
+                    <h2>Wallet</h2>
+                </div>
+
+                <!-- Balance Display -->
+                <div class="balance-card">
+                    <div class="balance-main">
+                        <span class="balance-label">Current Balance</span>
+                        <span class="balance-value" id="walletBalance">0 ETB</span>
+                    </div>
+                    <div class="bonus-display">
+                        <span>Bonus balance: <span id="bonusBalance">0</span> ETB</span>
+                    </div>
+                </div>
+
+                <!-- Transaction Buttons -->
+                <div class="transaction-buttons">
+                    <button class="btn btn-icon" onclick="openDeposit()">
+                        <span class="icon">⬇️</span>
+                        <span>Deposit</span>
+                    </button>
+                    <button class="btn btn-icon" onclick="openWithdraw()">
+                        <span class="icon">⬆️</span>
+                        <span>Withdraw</span>
+                    </button>
+                    <button class="btn btn-icon" onclick="openTransfer()">
+                        <span class="icon">🔄</span>
+                        <span>Transfer</span>
+                    </button>
+                </div>
+
+                <!-- Transaction History -->
+                <div class="transactions-section">
+                    <h3>Recent Transactions</h3>
+                    <div class="transactions-list" id="transactionsList">
+                        <!-- Transactions will be loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Deposit Modal -->
+            <div id="depositModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Deposit</h3>
+                        <button class="close-btn" onclick="closeDeposit()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Select your preferred deposit method</p>
+                        <div class="payment-methods">
+                            <button class="payment-method" onclick="selectPaymentMethod('telbirr')">
+                                <span class="method-icon">📱</span>
+                                <span>TeleBirr</span>
+                            </button>
+                            <button class="payment-method" onclick="selectPaymentMethod('cbe')">
+                                <span class="method-icon">🏦</span>
+                                <span>CBE Birr</span>
+                            </button>
+                            <button class="payment-method" onclick="selectPaymentMethod('bank')">
+                                <span class="method-icon">🏛️</span>
+                                <span>Commercial Bank</span>
+                            </button>
+                        </div>
+                        <input type="number" id="depositAmount" placeholder="Amount" class="input-field">
+                        <input type="text" id="depositPhone" placeholder="Phone/Account" class="input-field">
+                        <button class="btn btn-primary" onclick="submitDeposit()">Deposit</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Withdraw Modal -->
+            <div id="withdrawModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Withdraw</h3>
+                        <button class="close-btn" onclick="closeWithdraw()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Enter withdrawal details</p>
+                        <input type="number" id="withdrawAmount" placeholder="Amount" class="input-field">
+                        <select id="withdrawMethod" class="input-field">
+                            <option value="">Select Method</option>
+                            <option value="telbirr">TeleBirr</option>
+                            <option value="cbe">CBE Birr</option>
+                            <option value="bank">Commercial Bank</option>
+                        </select>
+                        <input type="text" id="withdrawAccount" placeholder="Account/Phone" class="input-field">
+                        <button class="btn btn-primary" onclick="submitWithdraw()">Withdraw</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transfer Modal -->
+            <div id="transferModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Transfer Funds</h3>
+                        <button class="close-btn" onclick="closeTransfer()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="transfer-tabs">
+                            <button class="tab active" data-tab="current">Current</button>
+                            <button class="tab" data-tab="bonus">Bonus</button>
+                        </div>
+                        <input type="text" id="recipientId" placeholder="Recipient ID" class="input-field">
+                        <input type="number" id="transferAmount" placeholder="Amount" class="input-field">
+                        <button class="btn btn-primary" onclick="submitTransfer()">Transfer</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Page -->
+            <section id="profilePage" class="page">
+                <div class="page-header">
+                    <h2>Profile</h2>
+                </div>
+
+                <!-- Profile Info -->
+                <div class="profile-section">
+                    <div class="profile-photo">
+                        <img id="profilePhoto" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="Profile">
+                        <button class="upload-btn" onclick="triggerPhotoUpload()">📸</button>
+                        <input type="file" id="photoUpload" accept="image/*" style="display:none" onchange="uploadPhoto(event)">
+                    </div>
+                    
+                    <div class="profile-info">
+                        <div class="info-row">
+                            <label>Name</label>
+                            <span id="profileName">-</span>
+                        </div>
+                        <div class="info-row">
+                            <label>Username</label>
+                            <span id="profileUsername">-</span>
+                        </div>
+                        <div class="info-row">
+                            <label>Joined</label>
+                            <span id="profileJoined">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Language Selection -->
+                <div class="settings-section">
+                    <h3>Settings</h3>
+                    <div class="setting-row">
+                        <label>Language</label>
+                        <select id="languageSelect" onchange="changeLanguage()" class="input-field">
+                            <option value="en">English</option>
+                            <option value="am">Amharic (አማርኛ)</option>
+                            <option value="or">Oromo (Afan Oromo)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-page="gamesPage" onclick="navigateTo('gamesPage')">
+                <span class="nav-icon">🎮</span>
+                <span class="nav-label">Games</span>
+            </button>
+            <button class="nav-item" data-page="walletPage" onclick="navigateTo('walletPage')">
+                <span class="nav-icon">💰</span>
+                <span class="nav-label">Wallet</span>
+            </button>
+            <button class="nav-item" data-page="profilePage" onclick="navigateTo('profilePage')">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="js/telegram.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/pages.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
