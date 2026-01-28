@@ -12,27 +12,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  backend:
-    build: .
-    command: python backend/app.py
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://bingo_user:bingo_password@postgres:5432/bingo_bot
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-    depends_on:
-      - postgres
-    volumes:
-      - ./backend:/app/backend
-      - ./uploads:/app/uploads
-
-  frontend:
-    image: nginx:alpine
-    ports:
-      - "3000:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html
-      - ./nginx.conf:/etc/nginx/nginx.conf
-
-volumes:
-  postgres_data:
+ backend:
+  build:
+    context: .
+    dockerfile: Dockerfile
+  command: python backend/app.py
+  ports:
+    - "8000:8000"
+  environment:
+    DATABASE_URL: postgresql://bingo_user:bingo_password@postgres:5432/bingo_bot
+    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  depends_on:
+    - postgres
+  volumes:
+    - ./backend:/app/backend
+    - ./uploads:/app/uploads
