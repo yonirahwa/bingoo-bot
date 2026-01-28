@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'https://bingoo-bot.onrender.com/api';
 
 // API helper function
 async function apiCall(endpoint, method = 'GET', data = null, isFormData = false) {
@@ -242,3 +242,4 @@ async function updateLanguage(language) {
         console.error('Failed to update language:', error);
     }
 }
+
