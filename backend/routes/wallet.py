@@ -27,10 +27,11 @@ async def get_balance(
 
 @router.post("/deposit")
 async def deposit(
-    user_id: int = Query(...),
     request: DepositRequest,
+    user_id: int = Query(...),
     db: Session = Depends(get_db)
 ):
+
     """Initiate deposit"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -59,8 +60,8 @@ async def deposit(
 
 @router.post("/withdraw")
 async def withdraw(
-    user_id: int = Query(...),
     request: WithdrawRequest,
+    user_id: int = Query(...),
     db: Session = Depends(get_db)
 ):
     """Initiate withdrawal"""
@@ -102,10 +103,11 @@ async def withdraw(
 
 @router.post("/transfer")
 async def transfer(
-    user_id: int = Query(...),
     request: TransferRequest,
+    user_id: int = Query(...),
     db: Session = Depends(get_db)
 ):
+
     """Transfer funds to another user"""
     sender = db.query(User).filter(User.id == user_id).first()
     if not sender:
@@ -156,3 +158,4 @@ async def get_transactions(
     ).order_by(Transaction.created_at.desc()).limit(limit).all()
     
     return transactions
+
