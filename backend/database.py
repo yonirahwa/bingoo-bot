@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from config import settings
+from backend.config import settings
 import os
 
 # Modify DATABASE_URL for psycopg2
@@ -23,3 +23,4 @@ def get_db():
         yield db
     finally:
         db.close()
+
