@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from config import settings
-from database import Base, engine
-from routes import auth, games, wallet, profile, websocket
+from backend.config import settings
+from backend.database import Base, engine
+from backend.routes import auth, games, wallet, profile, websocket
 import os
 
 # Create tables
@@ -50,3 +50,4 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
