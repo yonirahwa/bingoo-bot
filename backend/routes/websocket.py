@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from websocket_manager import manager
+from backend.websocket_manager import manager
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
@@ -39,3 +39,4 @@ async def websocket_endpoint(
             "type": "player_left",
             "user_id": user_id
         })
+
