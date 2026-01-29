@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User
-from schemas import UserCreate, UserResponse, UserUpdate
+from backend.database import get_db
+from backend.models import User
+from backend.schemas import UserCreate, UserResponse, UserUpdate
 from datetime import datetime
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -70,3 +70,4 @@ async def update_profile(
     db.commit()
     db.refresh(user)
     return user
+
