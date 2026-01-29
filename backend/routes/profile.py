@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User
-from schemas import UserResponse
+from backend.database import get_db
+from backend.models import User
+from backend.schemas import UserResponse
 import aiofiles
 import os
 
@@ -69,3 +69,4 @@ async def update_language(
     db.refresh(user)
     
     return {"language": user.language}
+
