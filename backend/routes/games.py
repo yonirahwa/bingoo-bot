@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import get_db
-from models import GameRoom, GameParticipant, User, BingoCard, CalledNumber
-from schemas import GameRoomResponse, GameParticipantResponse, JoinGameRequest, BingoCardResponse
-from game_logic import BingoCardGenerator, BingoGameLogic
+from backend.database import get_db
+from backend.models import GameRoom, GameParticipant, User, BingoCard, CalledNumber
+from backend.schemas import GameRoomResponse, GameParticipantResponse, JoinGameRequest, BingoCardResponse
+from backend.game_logic import BingoCardGenerator, BingoGameLogic
 from typing import List
 from datetime import datetime, timedelta
 import asyncio
-from websocket_manager import manager
+from backend.websocket_manager import manager
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -267,3 +267,4 @@ async def check_win(
         "pattern": pattern,
         "status": participant.status
     }
+
