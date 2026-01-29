@@ -11,3 +11,4 @@ bcrypt==4.1.1
 PyJWT==2.10.1
 httpx==0.25.2
 aiofiles==23.2.1
+requests==2.31.0
