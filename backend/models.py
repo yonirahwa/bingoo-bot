@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database import Base
+from backend.database import Base
 from datetime import datetime
 import enum
 
@@ -130,3 +130,4 @@ class Wallet(Base):
     
     # Relationships
     user = relationship("User", back_populates="wallets")
+
