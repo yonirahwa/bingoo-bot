@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User, Transaction, TransactionType, Wallet
-from schemas import DepositRequest, WithdrawRequest, TransferRequest, TransactionResponse
+from backend.database import get_db
+from backend.models import User, Transaction, TransactionType, Wallet
+from backend.schemas import DepositRequest, WithdrawRequest, TransferRequest, TransactionResponse
 from typing import List
 from datetime import datetime
 import uuid
@@ -158,4 +158,5 @@ async def get_transactions(
     ).order_by(Transaction.created_at.desc()).limit(limit).all()
     
     return transactions
+
 
