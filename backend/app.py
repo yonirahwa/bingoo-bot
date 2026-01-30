@@ -52,20 +52,26 @@ async def telegram_webhook(request: Request):
         chat_id = data["message"]["chat"]["id"]
         text = data["message"].get("text", "")
 
-        if text == "/start":
-            reply = "🎉 Welcome to Bingo Bot!\nType anything to test me."
-        else:
-            reply = f"You said: {text}"
+        reply = f"You said: {text}"
 
-        requests.post(
+        # 🔴 DEBUG (THIS IS WHAT YOU ASKED “WHERE?”)
+        print("BOT TOKEN:", TELEGRAM_BOT_TOKEN)
+        print("SEND URL:", f"{TELEGRAM_API_URL}/sendMessage")
+
+        response = requests.post(
             f"{TELEGRAM_API_URL}/sendMessage",
             json={
                 "chat_id": chat_id,
                 "text": reply
-            }
+            },
+            timeout=5
         )
 
+        print("Telegram status:", response.status_code)
+        print("Telegram response:", response.text)
+
     return {"ok": True}
+
 
 # Root
 @app.get("/")
@@ -76,3 +82,4 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
