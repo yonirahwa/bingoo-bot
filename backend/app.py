@@ -8,19 +8,16 @@ from backend.config import settings
 from backend.database import Base, engine
 from backend.routes import auth, games, wallet, profile, websocket
 
-# ✅ Create app FIRST
+# 🔴 CREATE APP FIRST
 app = FastAPI(
     title="Bingo Bot API",
     description="Web-based Bingo Game for Telegram",
     version="1.0.0"
 )
 
-# Telegram
+# Telegram config
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
-
-# Database
-Base.metadata.create_all(bind=engine)
 
 # CORS
 app.add_middleware(
@@ -42,7 +39,7 @@ app.include_router(wallet.router)
 app.include_router(profile.router)
 app.include_router(websocket.router)
 
-# ✅ WEBHOOK
+# ✅ WEBHOOK (NOW IT WILL WORK)
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
@@ -54,32 +51,26 @@ async def telegram_webhook(request: Request):
 
         reply = f"You said: {text}"
 
-        # 🔴 DEBUG (THIS IS WHAT YOU ASKED “WHERE?”)
-        print("BOT TOKEN:", TELEGRAM_BOT_TOKEN)
-        print("SEND URL:", f"{TELEGRAM_API_URL}/sendMessage")
-
         response = requests.post(
             f"{TELEGRAM_API_URL}/sendMessage",
             json={
                 "chat_id": chat_id,
                 "text": reply
-            },
-            timeout=5
+            }
         )
 
-        print("Telegram status:", response.status_code)
         print("Telegram response:", response.text)
 
     return {"ok": True}
 
-
-# Root
+# Health & root
 @app.get("/")
 async def root():
-    return {"message": "Bingo Bot API running"}
+    return {"message": "Bingo Bot API", "status": "running"}
 
-# Health
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
 
+# DB
+Base.metadata.create_all(bind=engine)
