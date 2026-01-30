@@ -1,101 +1,157 @@
 import os
 import asyncio
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import asyncpg
+from telegram import (
+    Bot,
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
+    MessageHandler,
+    filters,
     CallbackQueryHandler,
-    ContextTypes
+    ContextTypes,
 )
 
-# ===== CONFIG =====
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# Read environment variables
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+DATABASE_URL = os.environ.get("DATABASE_URL")  # Render Postgres URL
+
 if not BOT_TOKEN:
-    raise ValueError("Please set TELEGRAM_BOT_TOKEN environment variable!")
-
-# ===== DATABASE SETUP =====
-DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides DATABASE_URL
+    raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable not set")
 if not DATABASE_URL:
-    raise ValueError("Please set DATABASE_URL environment variable!")
+    raise RuntimeError("DATABASE_URL environment variable not set")
 
-conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-cursor = conn.cursor()
+# PostgreSQL connection pool
+async def create_db_pool():
+    return await asyncpg.create_pool(DATABASE_URL)
 
-# Create users table if not exists
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    chat_id BIGINT PRIMARY KEY,
-    first_name TEXT NOT NULL
-);
-""")
-conn.commit()
+# Initialize bot application
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-# ===== HELPERS =====
-async def is_registered(chat_id):
-    cursor.execute("SELECT 1 FROM users WHERE chat_id = %s", (chat_id,))
-    return cursor.fetchone() is not None
+# ---------- Registration ----------
 
-async def register_user(chat_id, first_name):
-    if not await is_registered(chat_id):
-        cursor.execute(
-            "INSERT INTO users (chat_id, first_name) VALUES (%s, %s)",
-            (chat_id, first_name)
-        )
-        conn.commit()
-        return True
-    return False
-
-# ===== COMMAND HANDLERS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     first_name = update.effective_user.first_name
 
-    if await is_registered(chat_id):
-        keyboard = [[InlineKeyboardButton("Play 🎮", callback_data="play")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(chat_id=chat_id, text=f"Welcome back {first_name}!", reply_markup=reply_markup)
-    else:
-        keyboard = [[InlineKeyboardButton("Register ✅", callback_data="register")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(chat_id=chat_id, text=f"Hi {first_name}! Please register first.", reply_markup=reply_markup)
+    pool = context.bot_data["db_pool"]
+    async with pool.acquire() as conn:
+        # Check if user is already registered
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE chat_id=$1", chat_id
+        )
+        if user:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"Welcome back {first_name}! Click Play to start the game.",
+                reply_markup=play_button(),
+            )
+            return
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Ask user to share contact
+    contact_button = KeyboardButton(
+        "Share Contact", request_contact=True
+    )
+    reply_markup = ReplyKeyboardMarkup([[contact_button]], resize_keyboard=True, one_time_keyboard=True)
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="Please share your phone number to register:",
+        reply_markup=reply_markup,
+    )
+
+
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    contact = update.message.contact
+    chat_id = update.effective_chat.id
+
+    if not contact or not contact.phone_number:
+        await context.bot.send_message(chat_id=chat_id, text="Please share your contact properly.")
+        return
+
+    pool = context.bot_data["db_pool"]
+    async with pool.acquire() as conn:
+        # Check if contact is already registered
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE phone=$1", contact.phone_number
+        )
+        if user:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="This phone number is already registered!",
+            )
+            return
+
+        # Insert new user
+        await conn.execute(
+            "INSERT INTO users(chat_id, first_name, phone) VALUES($1, $2, $3)",
+            chat_id,
+            update.effective_user.first_name,
+            contact.phone_number,
+        )
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="Registration successful! Click Play to continue.",
+        reply_markup=play_button(),
+    )
+
+
+# ---------- Play Button ----------
+
+def play_button():
+    keyboard = [
+        [
+            InlineKeyboardButton("Play 🎮", callback_data="play_game")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def handle_play(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     chat_id = query.message.chat.id
-    first_name = query.from_user.first_name
+    await context.bot.send_message(chat_id=chat_id, text="🎉 Game started! Have fun!")
 
-    if query.data == "register":
-        registered = await register_user(chat_id, first_name)
-        if registered:
-            keyboard = [[InlineKeyboardButton("Play 🎮", callback_data="play")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await context.bot.send_message(chat_id=chat_id, text="Registration successful! Click Play to start the game.", reply_markup=reply_markup)
-        else:
-            await context.bot.send_message(chat_id=chat_id, text="You are already registered! Click Play to start the game.")
-    
-    elif query.data == "play":
-        if not await is_registered(chat_id):
-            keyboard = [[InlineKeyboardButton("Register ✅", callback_data="register")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await context.bot.send_message(chat_id=chat_id, text="You must register first before playing.", reply_markup=reply_markup)
-            return
-        
-        # ===== GAME LOGIC =====
-        # Example: simple game message
-        await context.bot.send_message(chat_id=chat_id, text="🎮 Game started! Good luck!")
 
-# ===== MAIN FUNCTION =====
+# ---------- Handlers ----------
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+app.add_handler(CallbackQueryHandler(handle_play, pattern="play_game"))
+
+# ---------- Database Setup ----------
+
+async def init_db():
+    pool = await create_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                chat_id BIGINT UNIQUE NOT NULL,
+                first_name TEXT,
+                phone TEXT UNIQUE NOT NULL
+            );
+        """)
+    return pool
+
+
+# ---------- Main ----------
+
 async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-
+    db_pool = await init_db()
+    app.bot_data["db_pool"] = db_pool
     print("Bot is running...")
-    await app.run_polling()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 if __name__ == "__main__":
     asyncio.run(main())
