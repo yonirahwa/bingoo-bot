@@ -19,10 +19,10 @@ from telegram.ext import (
 )
 
 # Read environment variables
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")  # Render Postgres URL
 
-if not BOT_TOKEN:
+if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable not set")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable not set")
@@ -32,7 +32,7 @@ async def create_db_pool():
     return await asyncpg.create_pool(DATABASE_URL)
 
 # Initialize bot application
-app = ApplicationBuilder().token(BOT_TOKEN).build()
+app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
 # ---------- Registration ----------
 
@@ -155,3 +155,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
