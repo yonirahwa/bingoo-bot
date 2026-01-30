@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CallbackQueryHandler
 import os
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # Set your bot token in Render environment variables
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 app = FastAPI()
 
@@ -56,5 +56,6 @@ async def telegram_webhook(request: Request):
 @app.get("/")
 async def root():
     return {"message": "Bot webhook is running!"}
+
 
 
