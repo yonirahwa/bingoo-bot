@@ -1,138 +1,106 @@
+# app.py
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from backend.config import settings
-from backend.database import Base, engine, SessionLocal
-from backend.models import User  # Make sure you have User model
-from backend.routes import auth, games, wallet, profile, websocket
+from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 import os
-import requests
 
-# ------------------------------
-# Bot configuration
-# ------------------------------
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+# ---------------- Database Setup ----------------
+DATABASE_URL = "sqlite:///./test.db"  # for testing, change to your database
 
-# ------------------------------
-# FastAPI app
-# ------------------------------
-app = FastAPI(
-    title="Bingo Bot API",
-    description="Web-based Bingo Game for Telegram",
-    version="1.0.0"
-)
+Base = declarative_base()
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# ------------------------------
-# Middleware
-# ------------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(String, unique=True, index=True)
+    first_name = Column(String)  # <-- fixed name issue
+    phone = Column(String)
 
-# ------------------------------
-# Static files
-# ------------------------------
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# ------------------------------
-# Include routers
-# ------------------------------
-app.include_router(auth.router)
-app.include_router(games.router)
-app.include_router(wallet.router)
-app.include_router(profile.router)
-app.include_router(websocket.router)
-
-# ------------------------------
-# Database
-# ------------------------------
 Base.metadata.create_all(bind=engine)
 
-# ------------------------------
-# Helper functions
-# ------------------------------
-def send_message(chat_id, text, reply_markup=None):
-    payload = {
-        "chat_id": chat_id,
-        "text": text
-    }
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    requests.post(f"{TELEGRAM_API_URL}/sendMessage", json=payload)
+# ---------------- Bot Setup ----------------
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "YOUR_BOT_TOKEN_HERE"
+bot = Bot(token=BOT_TOKEN)
 
-def register_user(chat_id, first_name, phone_number):
+# ---------------- FastAPI Setup ----------------
+app = FastAPI()
+
+# ---------------- Helper Functions ----------------
+def register_user(telegram_id, first_name, phone=None):
     db = SessionLocal()
-    existing_user = db.query(User).filter(User.telegram_id == str(chat_id)).first()
-    if not existing_user:
-        user = User(telegram_id=str(chat_id), name=first_name, phone=phone_number)
-        db.add(user)
-        db.commit()
-    db.close()
+    existing_user = db.query(User).filter(User.telegram_id == str(telegram_id)).first()
+    if existing_user:
+        db.close()
+        return existing_user
 
-# ------------------------------
-# Telegram webhook
-# ------------------------------
+    user = User(telegram_id=str(telegram_id), first_name=first_name, phone=phone)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    db.close()
+    return user
+
+def is_registered(telegram_id):
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == str(telegram_id)).first()
+    db.close()
+    return user is not None
+
+# ---------------- Webhook ----------------
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
-    
-    if "message" in data:
-        message = data["message"]
-        chat_id = message["chat"]["id"]
-        first_name = message["from"].get("first_name", "")
-        text = message.get("text", "")
-        contact = message.get("contact")
+    update = Update.de_json(data, bot)
+    chat_id = update.effective_chat.id
+    first_name = update.effective_user.first_name
 
-        # Handle /start
-        if text == "/start":
-            keyboard = {
-                "keyboard": [[{"text": "Register", "request_contact": True}]],
-                "one_time_keyboard": True,
-                "resize_keyboard": True
-            }
-            send_message(chat_id, f"Welcome {first_name}! Please register by sharing your contact.", reply_markup=keyboard)
+    # ---------------- Start command ----------------
+    if update.message and update.message.text == "/start":
+        keyboard = [
+            [InlineKeyboardButton("Register", callback_data="register")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.send_message(chat_id=chat_id, text=f"Welcome {first_name}! Please register first.", reply_markup=reply_markup)
+        return {"ok": True}
+
+    # ---------------- Handle button callbacks ----------------
+    if update.callback_query:
+        query = update.callback_query
+        data = query.data
+
+        if data == "register":
+            # Ask for contact
+            contact_button = KeyboardButton(text="Share Contact", request_contact=True)
+            markup = ReplyKeyboardMarkup([[contact_button]], one_time_keyboard=True, resize_keyboard=True)
+            bot.send_message(chat_id=chat_id, text="Please share your contact to register:", reply_markup=markup)
             return {"ok": True}
 
-        # Handle contact sharing
-        if contact:
-            phone_number = contact.get("phone_number")
-            register_user(chat_id, first_name, phone_number)
-
-            # Reply with Play button (Web App)
-            keyboard = {
-                "inline_keyboard": [
-                    [{"text": "▶️ Play", "web_app": {"url": "https://bingoo-bot.onrender.com"}}]
-                ]
-            }
-            send_message(chat_id, "You are registered! Click Play to open the game.", reply_markup=keyboard)
+        if data == "play":
+            keyboard = [
+                [InlineKeyboardButton("Start Game", callback_data="start_game")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            bot.send_message(chat_id=chat_id, text="Click to start the game!", reply_markup=reply_markup)
             return {"ok": True}
+
+        if data == "start_game":
+            bot.send_message(chat_id=chat_id, text="Game started! 🎮")
+            return {"ok": True}
+
+    # ---------------- Handle contact registration ----------------
+    if update.message and update.message.contact:
+        phone_number = update.message.contact.phone_number
+        user = register_user(chat_id, first_name, phone_number)
+
+        # After successful registration, show Play button
+        keyboard = [
+            [InlineKeyboardButton("Play", callback_data="play")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.send_message(chat_id=chat_id, text="Registration successful! Click Play to continue.", reply_markup=reply_markup)
+        return {"ok": True}
 
     return {"ok": True}
-
-# ------------------------------
-# Health check & root
-# ------------------------------
-@app.get("/")
-async def root():
-    return {
-        "message": "Bingo Bot API",
-        "status": "running",
-        "docs": "/docs"
-    }
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-# ------------------------------
-# Run server
-# ------------------------------
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
